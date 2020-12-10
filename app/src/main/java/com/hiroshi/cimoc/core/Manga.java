@@ -1,12 +1,15 @@
 package com.hiroshi.cimoc.core;
 
 import com.hiroshi.cimoc.App;
+import com.hiroshi.cimoc.manager.ChapterManager;
 import com.hiroshi.cimoc.manager.SourceManager;
 import com.hiroshi.cimoc.model.Chapter;
 import com.hiroshi.cimoc.model.Comic;
 import com.hiroshi.cimoc.model.ImageUrl;
 import com.hiroshi.cimoc.parser.Parser;
 import com.hiroshi.cimoc.parser.SearchIterator;
+import com.hiroshi.cimoc.rx.RxBus;
+import com.hiroshi.cimoc.rx.RxEvent;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -79,12 +82,17 @@ public class Manga {
                         comic.setUrl(parser.getUrl(comic.getCid()));
                         Request request = parser.getInfoRequest(comic.getCid());
                         String html = getResponseBody(App.getHttpClient(), request);
-                        parser.parseInfo(html, comic);
+                        Comic newComic = parser.parseInfo(html, comic);
+                        RxBus.getInstance().post(new RxEvent(RxEvent.EVENT_COMIC_UPDATE_INFO, newComic));
                         request = parser.getChapterRequest(html, comic.getCid());
                         if (request != null) {
                             html = getResponseBody(App.getHttpClient(), request);
                         }
-                        list = parser.parseChapter(html);
+                        Long sourceComic = Long.parseLong(comic.getSource() + "000" + (comic.getId() == null ? "00" : comic.getId()));
+                        list = parser.parseChapter(html, comic, sourceComic);
+                        if (list == null) {
+                            list = parser.parseChapter(html);
+                        }
 //                        mongo.UpdateComicBase(comic, list);
                     }
                     if (!list.isEmpty()) {
@@ -122,7 +130,7 @@ public class Manga {
         }).subscribeOn(Schedulers.io());
     }
 
-    public static Observable<List<ImageUrl>> getChapterImage(final Comic mComic,
+    public static Observable<List<ImageUrl>> getChapterImage(final Chapter chapter,
                                                              final Parser parser,
                                                              final String cid,
                                                              final String path) {
@@ -138,7 +146,10 @@ public class Manga {
                     if (list.isEmpty()) {
                         Request request = parser.getImagesRequest(cid, path);
                         html = getResponseBody(App.getHttpClient(), request);
-                        list = parser.parseImages(html);
+                        list = parser.parseImages(html,chapter);
+                        if (list == null || list.size()==0) {
+                            list = parser.parseImages(html);
+                        }
 //                        if (!list.isEmpty()) {
 //                            mongo.InsertComicChapter(mComic, path, list);
 //                        }
@@ -160,7 +171,7 @@ public class Manga {
         }).subscribeOn(Schedulers.io());
     }
 
-    public static List<ImageUrl> getImageUrls(Parser parser, int source, String cid, String path) throws InterruptedIOException {
+    public static List<ImageUrl> getImageUrls(Parser parser, int source, String cid, String path, String title, ChapterManager mChapterManager) throws InterruptedIOException {
         List<ImageUrl> list = new ArrayList<>();
 //        Mongo mongo = new Mongo();
         Response response = null;
@@ -172,7 +183,13 @@ public class Manga {
             Request request = parser.getImagesRequest(cid, path);
             response = App.getHttpClient().newCall(request).execute();
             if (response.isSuccessful()) {
-                list.addAll(parser.parseImages(response.body().string()));
+                List<Chapter> chapter = mChapterManager.getChapter(path, title);
+                if (chapter != null && chapter.size() >= 1) {
+                    list.addAll(parser.parseImages(response.body().string(), chapter.get(0)));
+                }
+                if (list.size() == 0) {
+                    list.addAll(parser.parseImages(response.body().string()));
+                }
 //                mongo.InsertComicChapter(source, cid, path, list);
             } else {
                 throw new NetworkErrorException();
@@ -272,9 +289,9 @@ public class Manga {
                         .readTimeout(1500, TimeUnit.MILLISECONDS)
                         .build();
                 for (Comic comic : list) {
-                    Parser parser = manager.getParser(comic.getSource());
-                    Request request = parser.getCheckRequest(comic.getCid());
                     try {
+                        Parser parser = manager.getParser(comic.getSource());
+                        Request request = parser.getCheckRequest(comic.getCid());
                         String update = parser.parseCheck(getResponseBody(client, request));
                         if (comic.getUpdate() != null && update != null && !comic.getUpdate().equals(update)) {
                             comic.setFavorite(System.currentTimeMillis());
@@ -284,6 +301,7 @@ public class Manga {
                             continue;
                         }
                     } catch (Exception e) {
+                        e.printStackTrace();
                     }
                     subscriber.onNext(null);
                 }

@@ -89,15 +89,16 @@ public class Tencent extends MangaParser {
     }
 
     @Override
-    public void parseInfo(String html, Comic comic) throws UnsupportedEncodingException {
+    public Comic parseInfo(String html, Comic comic) throws UnsupportedEncodingException {
         Node body = new Node(html);
-        String title = body.text("li.head-info-title > h1");
-        String cover = body.src("div.head-info-cover > img");
-        String update = body.text("span.comicList-info-time");
-        String author = body.text("li.head-info-author");
-        String intro = body.text("div.detail-summary > p");
+        String title = body.text("div.head-title-tags > h1");
+        String cover = body.src("div.head-banner > img");
+        String update = "";
+        String author = body.text("li.author-wr");
+        String intro = body.text("div.head-info-desc");
         boolean status = isFinish("连载中");//todo: fix here
         comic.setInfo(title, cover, update, intro, author, status);
+        return comic;
     }
 
     @Override
@@ -109,12 +110,13 @@ public class Tencent extends MangaParser {
     }
 
     @Override
-    public List<Chapter> parseChapter(String html) {
+    public List<Chapter> parseChapter(String html, Comic comic, Long sourceComic) {
         List<Chapter> list = new LinkedList<>();
+        int i=0;
         for (Node node : new Node(html).list("ul.normal > li.chapter-item")) {
             String title = node.text("a");
             String path = node.href("a").substring("/chapter/index/id/518333/cid/".length());
-            list.add(new Chapter(title, path));
+            list.add(new Chapter(Long.parseLong(sourceComic + "000" + i++), sourceComic, title, path));
         }
         return Lists.reverse(list);
     }
@@ -149,7 +151,7 @@ public class Tencent extends MangaParser {
     }
 
     @Override
-    public List<ImageUrl> parseImages(String html) {
+    public List<ImageUrl> parseImages(String html, Chapter chapter) {
         List<ImageUrl> list = new LinkedList<>();
         String str = StringUtils.match("data:\\s*'(.*)?',", html, 1);
         if (str != null) {
@@ -160,7 +162,9 @@ public class Tencent extends MangaParser {
                 JSONObject object = new JSONObject(str);
                 JSONArray array = object.getJSONArray("picture");
                 for (int i = 0; i != array.length(); ++i) {
-                    list.add(new ImageUrl(i + 1, array.getJSONObject(i).getString("url"), false));
+                    Long comicChapter = chapter.getId();
+                    Long id = Long.parseLong(comicChapter + "000" + i);
+                    list.add(new ImageUrl(id, comicChapter, i + 1, array.getJSONObject(i).getString("url"), false));
                 }
             } catch (Exception e) {
                 e.printStackTrace();

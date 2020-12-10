@@ -6,8 +6,10 @@ import com.google.android.gms.ads.AdListener;
 import com.google.android.gms.ads.AdLoader;
 import com.google.android.gms.ads.AdRequest;
 import com.google.android.gms.ads.formats.UnifiedNativeAd;
+import com.hiroshi.cimoc.App;
 import com.hiroshi.cimoc.BuildConfig;
 import com.hiroshi.cimoc.R;
+import com.hiroshi.cimoc.manager.PreferenceManager;
 import com.hiroshi.cimoc.model.MiniComic;
 import com.hiroshi.cimoc.presenter.BasePresenter;
 import com.hiroshi.cimoc.presenter.HistoryPresenter;
@@ -42,6 +44,9 @@ public class HistoryFragment extends GridFragment implements HistoryView {
     @Override
     protected void initData() {
         mPresenter.load();
+        if(App.getPreferenceManager().getBoolean(PreferenceManager.PREF_OTHER_REDUCE_AD, false)) {
+            NUMBER_OF_ADS=2;
+        }
         loadNativeAds();
     }
 
@@ -119,7 +124,7 @@ public class HistoryFragment extends GridFragment implements HistoryView {
         return new String[]{getString(R.string.comic_info), getString(R.string.history_delete)};
     }
 
-    public static final int NUMBER_OF_ADS = 5;
+    public static int NUMBER_OF_ADS = 5;
     private AdLoader adLoader;
     private List<UnifiedNativeAd> mNativeAds = new ArrayList<>();
 
@@ -131,6 +136,7 @@ public class HistoryFragment extends GridFragment implements HistoryView {
         int offset = (mGridAdapter.getDateSet().size() / mNativeAds.size()) + 1;
         int index = 0;
         for (UnifiedNativeAd ad : mNativeAds) {
+            if (mGridAdapter.getItemCount() == 0) return;
             mGridAdapter.add(index, ad);
             index = index + offset;
         }

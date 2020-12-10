@@ -244,6 +244,9 @@ public class App extends MultiDexApplication implements AppGetter, Thread.Uncaug
             mHttpClient = new OkHttpClient().newBuilder()
                     .sslSocketFactory(createSSLSocketFactory())
                     .hostnameVerifier(new TrustAllHostnameVerifier())
+                    .followRedirects(true)
+                    .followSslRedirects(true)
+                    .retryOnConnectionFailure(true)
                     .build();
         }
 

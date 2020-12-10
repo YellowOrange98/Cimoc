@@ -61,11 +61,12 @@ public class UpdateHelper {
         list.add(U17.getDefaultSource());
         list.add(DM5.getDefaultSource());
         list.add(Webtoon.getDefaultSource());
-        list.add(HHSSEE.getDefaultSource());
+        //list.add(HHSSEE.getDefaultSource());
         list.add(MH57.getDefaultSource());
         list.add(MH50.getDefaultSource());
         list.add(Dmzjv2.getDefaultSource());
         list.add(MangaNel.getDefaultSource());
+        list.add(Mangakakalot.getDefaultSource());
         list.add(PuFei.getDefaultSource());
         list.add(Cartoonmad.getDefaultSource());
         list.add(Animx2.getDefaultSource());
@@ -75,7 +76,7 @@ public class UpdateHelper {
         list.add(Tencent.getDefaultSource());
         list.add(BuKa.getDefaultSource());
         list.add(EHentai.getDefaultSource());
-        list.add(NetEase.getDefaultSource());
+        list.add(QiManWu.getDefaultSource());
         list.add(Hhxxee.getDefaultSource());
         list.add(ChuiXue.getDefaultSource());
         list.add(BaiNian.getDefaultSource());
@@ -89,10 +90,12 @@ public class UpdateHelper {
         list.add(MHLove.getDefaultSource());
         list.add(GuFeng.getDefaultSource());
         list.add(YYLS.getDefaultSource());
-        list.add(Comic18.getDefaultSource());
+        list.add(JMTT.getDefaultSource());
         list.add(Ohmanhua.getDefaultSource());
         list.add(CopyMH.getDefaultSource());
         list.add(WebtoonDongManManHua.getDefaultSource());
+        list.add(MH160.getDefaultSource());
+        list.add(QiMiaoMH.getDefaultSource());
         session.getSourceDao().insertOrReplaceInTx(list);
     }
 }

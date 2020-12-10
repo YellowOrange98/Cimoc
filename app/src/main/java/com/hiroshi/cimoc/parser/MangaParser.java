@@ -2,10 +2,14 @@ package com.hiroshi.cimoc.parser;
 
 import android.net.Uri;
 
+import com.hiroshi.cimoc.core.Manga;
+import com.hiroshi.cimoc.model.Chapter;
 import com.hiroshi.cimoc.model.Comic;
 import com.hiroshi.cimoc.model.ImageUrl;
 import com.hiroshi.cimoc.model.Source;
 import com.hiroshi.cimoc.utils.StringUtils;
+
+import org.json.JSONException;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -31,6 +35,16 @@ public abstract class MangaParser implements Parser {
 
     protected void initUrlFilterList() {
 //        filter.add(new UrlFilter("manhua.dmzj.com", "/(\\w+)", 1));
+    }
+
+    @Override
+    public List<Chapter> parseChapter(String html) throws JSONException {
+        return null;
+    }
+
+    @Override
+    public List<ImageUrl> parseImages(String html) throws Manga.NetworkErrorException, JSONException {
+        return null;
     }
 
     @Override
@@ -91,7 +105,7 @@ public abstract class MangaParser implements Parser {
     }
 
     protected boolean isFinish(String text) {
-        return text != null && (text.contains("完结") || text.contains("Completed"));
+        return text != null && (text.contains("完结") || text.contains("Completed") || text.contains("完結"));
     }
 
     @Override

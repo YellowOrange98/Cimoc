@@ -39,7 +39,8 @@ public abstract class BaseActivity extends AppCompatActivity implements BaseView
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        mPreference = getAppInstance().getPreferenceManager();
+        initAdMob();
+        mPreference = App.getPreferenceManager();
         initTheme();
         setContentView(getLayoutRes());
         ButterKnife.bind(this);
@@ -50,7 +51,6 @@ public abstract class BaseActivity extends AppCompatActivity implements BaseView
         initView();
         initData();
         initUser();
-        initAdMob();
     }
 
     @Override

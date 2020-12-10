@@ -102,9 +102,9 @@ public class SourceManager {
                 case Webtoon.TYPE:
                     parser = new Webtoon(source);
                     break;
-                case HHSSEE.TYPE:
-                    parser = new HHSSEE(source);
-                    break;
+//                case HHSSEE.TYPE:
+//                    parser = new HHSSEE(source);
+//                    break;
                 case MH57.TYPE:
                     parser = new MH57(source);
                     break;
@@ -134,8 +134,8 @@ public class SourceManager {
                 case EHentai.TYPE:
                     parser = new EHentai(source);
                     break;
-                case NetEase.TYPE:
-                    parser = new NetEase(source);
+                case QiManWu.TYPE:
+                    parser = new QiManWu(source);
                     break;
                 case Hhxxee.TYPE:
                     parser = new Hhxxee(source);
@@ -179,8 +179,13 @@ public class SourceManager {
                 case YYLS.TYPE:
                     parser = new YYLS(source);
                     break;
-                case Comic18.TYPE:
-                    parser = new Comic18(source);
+                case JMTT.TYPE:
+                    parser = new JMTT(source);
+                    break;
+
+                //haleydu
+                case Mangakakalot.TYPE:
+                    parser = new Mangakakalot(source);
                     break;
                 case Ohmanhua.TYPE:
                     parser = new Ohmanhua(source);
@@ -193,6 +198,12 @@ public class SourceManager {
                     break;
                 case WebtoonDongManManHua.TYPE:
                     parser = new WebtoonDongManManHua(source);
+                    break;
+                case MH160.TYPE:
+                    parser = new MH160(source);
+                    break;
+                case QiMiaoMH.TYPE:
+                    parser = new QiMiaoMH(source);
                     break;
                 default:
                     parser = new Null();

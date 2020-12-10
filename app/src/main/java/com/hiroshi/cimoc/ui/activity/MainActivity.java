@@ -1,6 +1,5 @@
 package com.hiroshi.cimoc.ui.activity;
 
-import android.Manifest;
 import android.content.Intent;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
@@ -13,7 +12,6 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.StyleRes;
 
-import com.google.android.gms.ads.AdListener;
 import com.google.android.gms.ads.AdRequest;
 import com.google.android.gms.ads.AdView;
 import com.google.android.gms.ads.MobileAds;
@@ -22,7 +20,6 @@ import com.google.android.gms.ads.initialization.OnInitializationCompleteListene
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
 import com.google.android.material.navigation.NavigationView;
-import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.core.view.GravityCompat;
 import androidx.drawerlayout.widget.DrawerLayout;
@@ -34,6 +31,7 @@ import android.view.MenuItem;
 import android.view.View;
 import android.widget.FrameLayout;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.facebook.drawee.interfaces.DraweeController;
 import com.facebook.drawee.view.SimpleDraweeView;
@@ -43,9 +41,9 @@ import com.facebook.imagepipeline.request.ImageRequestBuilder;
 import com.google.firebase.remoteconfig.FirebaseRemoteConfig;
 import com.google.firebase.remoteconfig.FirebaseRemoteConfigSettings;
 import com.hiroshi.cimoc.App;
-import com.hiroshi.cimoc.BuildConfig;
 import com.hiroshi.cimoc.R;
 import com.hiroshi.cimoc.component.ThemeResponsive;
+import com.hiroshi.cimoc.core.Update;
 import com.hiroshi.cimoc.fresco.ControllerBuilderProvider;
 import com.hiroshi.cimoc.global.Extra;
 import com.hiroshi.cimoc.manager.PreferenceManager;
@@ -60,6 +58,7 @@ import com.hiroshi.cimoc.ui.view.MainView;
 import com.hiroshi.cimoc.utils.HintUtils;
 import com.hiroshi.cimoc.utils.PermissionUtils;
 
+import com.king.app.updater.constant.Constants;
 import butterknife.BindView;
 
 
@@ -101,6 +100,9 @@ public class MainActivity extends BaseActivity implements MainView, NavigationVi
     private BaseFragment mCurrentFragment;
     private boolean night;
 
+    private Update update = new Update();
+    private String versionName,content,mUrl,md5;
+    private int versionCode;
     //auth0
 //    private Auth0 auth0;
 
@@ -195,10 +197,12 @@ public class MainActivity extends BaseActivity implements MainView, NavigationVi
             }
             checkUpdate();
         }
+        mPresenter.getSourceBaseUrl();
 
         showAuthorNotice();
         showPermission();
-        initAdView();
+        getMh50KeyIv();
+
     }
 
     @Override
@@ -271,7 +275,7 @@ public class MainActivity extends BaseActivity implements MainView, NavigationVi
         mLastText = header.findViewById(R.id.drawer_last_title);
         mDraweeView = header.findViewById(R.id.drawer_last_cover);
 
-        mAdView = header.findViewById(R.id.adView);
+        AdView mAdView = header.findViewById(R.id.adView);
         AdRequest adRequest = new AdRequest.Builder().build();
         mAdView.loadAd(adRequest);
 
@@ -387,12 +391,7 @@ public class MainActivity extends BaseActivity implements MainView, NavigationVi
                     }
                     break;
                 case R.id.drawer_comicUpdate:
-                    Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(getString(R.string.about_update_url)));
-                    try {
-                        startActivity(intent);
-                    } catch (Exception e) {
-                        showSnackbar(R.string.about_resource_fail);
-                    }
+                    update.startUpdate(versionName, content, mUrl, versionCode, md5);
                     break;
                 case R.id.drawer_night:
                     onNightSwitch();
@@ -442,7 +441,8 @@ public class MainActivity extends BaseActivity implements MainView, NavigationVi
                 //showPermission();
                 break;
             case DIALOG_REQUEST_PERMISSION:
-                ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, 0);
+                com.king.app.updater.util.PermissionUtils.verifyReadAndWritePermissions(this, Constants.RE_CODE_STORAGE_PERMISSION);
+                //ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, 0);
                 break;
 //            case DIALOG_REQUEST_LOGOUT:
 //                logout();
@@ -481,6 +481,21 @@ public class MainActivity extends BaseActivity implements MainView, NavigationVi
             mNavigationView.getMenu().findItem(R.id.drawer_comicUpdate).setVisible(true);
         }
 //        Update.update(this);
+    }
+
+    @Override
+    public void onUpdateReady(String versionName, String content, String mUrl, int versionCode, String md5) {
+        this.versionName = versionName;
+        this.content = content;
+        this.mUrl = mUrl;
+        this.md5 = md5;
+        this.versionCode = versionCode;
+        if (mPreference.getBoolean(PreferenceManager.PREF_OTHER_CHECK_SOFTWARE_UPDATE, true)) {
+            mNavigationView.getMenu().findItem(R.id.drawer_comicUpdate).setVisible(true);
+            update.startUpdate(versionName, content, mUrl, versionCode, md5);
+        }else {
+            HintUtils.showToast(this, R.string.main_ready_update);
+        }
     }
 
     @Override
@@ -560,8 +575,41 @@ public class MainActivity extends BaseActivity implements MainView, NavigationVi
                 });
     }
 
+    private void getMh50KeyIv() {
+        FirebaseRemoteConfig mFirebaseRemoteConfig = FirebaseRemoteConfig.getInstance();
+        FirebaseRemoteConfigSettings configSettings = new FirebaseRemoteConfigSettings.Builder()
+                .setMinimumFetchIntervalInSeconds(60*60)
+                .build();
+        mFirebaseRemoteConfig.setConfigSettingsAsync(configSettings);
+        mFirebaseRemoteConfig.setDefaultsAsync(R.xml.remote_config);
+        mFirebaseRemoteConfig.fetchAndActivate()
+                .addOnCompleteListener(this, new OnCompleteListener<Boolean>() {
+                    @Override
+                    public void onComplete(@NonNull Task<Boolean> task) {
+                        if (task.isSuccessful()) {
+                            boolean updated = task.getResult();
+                            Log.d("FireBase_FirstOpenMsg", "Config params updated: " + updated);
+                        } else {
+                            Log.d("FireBase_FirstOpenMsg", "Config params updated Failed. ");
+                        }
+
+                        String mh50_key = mFirebaseRemoteConfig.getString("mh50_key_msg");
+                        String mh50_iv = mFirebaseRemoteConfig.getString("mh50_iv_msg");
+
+                        if (!mh50_key.equals(mPreference.getString(PreferenceManager.PREFERENCES_MH50_KEY_MSG, "KA58ZAQ321oobbG8"))){
+                            mPreference.putString(PreferenceManager.PREFERENCES_MH50_KEY_MSG, mh50_key);
+                            Toast.makeText(MainActivity.this,"漫画堆key已更新",Toast.LENGTH_LONG).show();
+                        }
+                        if (!mh50_iv.equals(mPreference.getString(PreferenceManager.PREFERENCES_MH50_IV_MSG, "A1B2C3DEF1G321o8"))){
+                            mPreference.putString(PreferenceManager.PREFERENCES_MH50_IV_MSG, mh50_iv);
+                            Toast.makeText(MainActivity.this,"漫画堆iv已更新",Toast.LENGTH_LONG).show();
+                        }
+                    }
+                });
+    }
+
     private void showPermission() {
-        if (!PermissionUtils.hasStoragePermission(this)) {
+        if (!PermissionUtils.hasAllPermissions(this)) {
             MessageDialogFragment fragment = MessageDialogFragment.newInstance(R.string.main_permission,
                     R.string.main_permission_content, false, DIALOG_REQUEST_PERMISSION);
             fragment.show(getFragmentManager(), null);
@@ -571,7 +619,8 @@ public class MainActivity extends BaseActivity implements MainView, NavigationVi
     private void checkUpdate() {
         try {
             PackageInfo info = getPackageManager().getPackageInfo(getPackageName(), 0);
-            mPresenter.checkUpdate(info.versionName);
+            mPresenter.checkGiteeUpdate(info.versionCode);
+            //mPresenter.checkUpdate(info.versionName);
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -603,10 +652,4 @@ public class MainActivity extends BaseActivity implements MainView, NavigationVi
     protected View getLayoutView() {
         return mDrawerLayout;
     }
-
-    private AdView mAdView;
-    public void initAdView() {
-
-    }
-
 }

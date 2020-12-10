@@ -39,24 +39,8 @@ public class Hhxxee extends MangaParser {
         init(source, null);
     }
 
-    private static final String[] servers = {
-            "http://165.94201314.net/dm01/",
-            "http://165.94201314.net/dm02/",
-            "http://165.94201314.net/dm03/",
-            "http://165.94201314.net/dm04/",
-            "http://165.94201314.net/dm05/",
-            "http://165.94201314.net/dm06/",
-            "http://165.94201314.net/dm07/",
-            "http://165.94201314.net/dm08/",
-            "http://165.94201314.net/dm09/",
-            "http://165.94201314.net/dm10/",
-            "http://165.94201314.net/dm11/",
-            "http://165.94201314.net/dm12/",
-            "http://165.94201314.net/dm13/",
-            "http://173.231.57.238/dm14/",
-            "http://165.94201314.net/dm15/",
-            "http://142.4.34.102/dm16/"
-    };
+    private static final String serverstr = "http://20.125084.com/dm01/|http://20.125084.com/dm02/|http://20.125084.com/dm03/|http://20.125084.com/dm04/|http://20.125084.com/dm05/|http://20.125084.com/dm06/|http://20.125084.com/dm07/|http://20.125084.com/dm08/|http://20.125084.com/dm09/|http://20.125084.com/dm10/|http://20.125084.com/dm11/|http://20.125084.com/dm12/|http://20.125084.com/dm13/|http://20.125084.com/dm14/|http://20.125084.com/dm15/|http://20.125084.com/dm16/";
+    private static final String[] servers = serverstr.split("\\|");
 
     public static Source getDefaultSource() {
         return new Source(null, DEFAULT_TITLE, TYPE, true);
@@ -108,7 +92,7 @@ public class Hhxxee extends MangaParser {
     }
 
     @Override
-    public void parseInfo(String html, Comic comic) throws UnsupportedEncodingException {
+    public Comic parseInfo(String html, Comic comic) throws UnsupportedEncodingException {
         Node body = new Node(html);
         String title = body.text(".cTitle");
         String cover = body.src(".cDefaultImg > img");
@@ -117,15 +101,17 @@ public class Hhxxee extends MangaParser {
         String intro = body.text(".cCon");
         boolean status = false;
         comic.setInfo(title, cover, update, intro, author, status);
+        return comic;
     }
 
     @Override
-    public List<Chapter> parseChapter(String html) {
+    public List<Chapter> parseChapter(String html, Comic comic, Long sourceComic) {
         List<Chapter> list = new LinkedList<>();
+        int i=0;
         for (Node node : new Node(html).list("#subBookListAct > div")) {
             String title = node.text("a");
             String path = node.hrefWithSplit("a", 2);
-            list.add(new Chapter(title, path));
+            list.add(new Chapter(Long.parseLong(sourceComic + "000" + i++), sourceComic, title, path));
         }
         return list;
     }
@@ -141,14 +127,16 @@ public class Hhxxee extends MangaParser {
     }
 
     @Override
-    public List<ImageUrl> parseImages(String html) {
+    public List<ImageUrl> parseImages(String html, Chapter chapter) {
         List<ImageUrl> list = new LinkedList<>();
         String str = StringUtils.match("var sFiles=\"(.*?)\"", html, 1);
         if (str != null) {
             try {
                 String[] array = str.split("\\|");
                 for (int i = 0; i != array.length; ++i) {
-                    list.add(new ImageUrl(i + 1, servers[getPictureServers(array[i])] + array[i], false));
+                    Long comicChapter = chapter.getId();
+                    Long id = Long.parseLong(comicChapter + "000" + i);
+                    list.add(new ImageUrl(id, comicChapter,i + 1, servers[getPictureServers(array[i])] + array[i], false));
                 }
             } catch (Exception e) {
                 e.printStackTrace();

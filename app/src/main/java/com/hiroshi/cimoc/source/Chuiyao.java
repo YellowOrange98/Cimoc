@@ -73,7 +73,7 @@ public class Chuiyao extends MangaParser {
     }
 
     @Override
-    public void parseInfo(String html, Comic comic) {
+    public Comic parseInfo(String html, Comic comic) {
         Node body = new Node(html);
         String title = body.text("div.main-bar > h1");
         String cover = body.src("div.book-detail > div.cont-list > div.thumb > img");
@@ -82,15 +82,17 @@ public class Chuiyao extends MangaParser {
         String intro = body.text("#bookIntro");
         boolean status = isFinish(body.text("div.book-detail > div.cont-list > div.thumb > i"));
         comic.setInfo(title, cover, update, intro, author, status);
+        return comic;
     }
 
     @Override
-    public List<Chapter> parseChapter(String html) {
+    public List<Chapter> parseChapter(String html, Comic comic, Long sourceComic) {
         List<Chapter> list = new LinkedList<>();
+        int i=0;
         for (Node node : new Node(html).list("#chapterList > ul > li > a")) {
             String title = node.attr("title");
             String path = node.hrefWithSplit(2);
-            list.add(new Chapter(title, path));
+            list.add(new Chapter(Long.parseLong(sourceComic + "000" + i++), sourceComic, title, path));
         }
         return list;
     }
@@ -102,14 +104,16 @@ public class Chuiyao extends MangaParser {
     }
 
     @Override
-    public List<ImageUrl> parseImages(String html) {
+    public List<ImageUrl> parseImages(String html, Chapter chapter) {
         List<ImageUrl> list = new LinkedList<>();
         String str = StringUtils.match("parseJSON\\('(.*?)'\\)", html, 1);
         if (str != null) {
             try {
                 JSONArray array = new JSONArray(str);
                 for (int i = 0; i != array.length(); ++i) {
-                    list.add(new ImageUrl(i + 1, array.getString(i), false));
+                    Long comicChapter = chapter.getId();
+                    Long id = Long.parseLong(comicChapter + "000" + i);
+                    list.add(new ImageUrl(id, comicChapter,i + 1, array.getString(i), false));
                 }
             } catch (Exception e) {
                 e.printStackTrace();

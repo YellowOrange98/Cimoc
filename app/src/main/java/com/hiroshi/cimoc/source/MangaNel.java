@@ -1,5 +1,6 @@
 package com.hiroshi.cimoc.source;
 
+import android.util.Log;
 import android.util.Pair;
 
 import com.hiroshi.cimoc.model.Chapter;
@@ -9,8 +10,10 @@ import com.hiroshi.cimoc.model.Source;
 import com.hiroshi.cimoc.parser.JsonIterator;
 import com.hiroshi.cimoc.parser.MangaCategory;
 import com.hiroshi.cimoc.parser.MangaParser;
+import com.hiroshi.cimoc.parser.NodeIterator;
 import com.hiroshi.cimoc.parser.SearchIterator;
 import com.hiroshi.cimoc.soup.Node;
+import com.hiroshi.cimoc.utils.LogUtil;
 import com.hiroshi.cimoc.utils.StringUtils;
 
 import org.json.JSONArray;
@@ -29,7 +32,10 @@ import okhttp3.Request;
 import okhttp3.RequestBody;
 
 /**
+ *
  * Created by nich on 2017/8/6.
+ * fix by haleydu on 2020/8/16.
+ *
  */
 
 public class MangaNel extends MangaParser {
@@ -53,14 +59,9 @@ public class MangaNel extends MangaParser {
      */
     @Override
     public Request getSearchRequest(String keyword, int page) {
-        String url = "http://manganelo.com/home/getjson_searchstory";
-
-        RequestBody formBody = new FormBody.Builder()
-                .add("searchword", keyword)
-                .add("search_style", "tentruyen")
-                .build();
-
-        return new Request.Builder().url(url).post(formBody).build();
+        if (page !=1 ) return null;
+        String url = "https://manganelo.com/search/story/" + keyword;
+        return new Request.Builder().url(url).build();
     }
 
     /**
@@ -71,33 +72,18 @@ public class MangaNel extends MangaParser {
      */
     @Override
     public SearchIterator getSearchIterator(String html, int page) {
-        if (page > 1) return null; // MangaNel的搜索不支持分页，最多仅返回20个搜索结果
-
-        try {
-            return new JsonIterator(new JSONArray(html)) {
-                @Override
-                protected Comic parse(JSONObject object) {
-                    try {
-                        String cid = object.getString("nameunsigned");
-                        String title = object.getString("name");
-                        if (title.contains("<span")) {
-                            Node n = new Node(title);
-                            title = n.text();
-                        }
-                        String cover = object.getString("image");
-                        String update = object.getString("lastchapter");
-                        String author = object.getString("author");
-                        return new Comic(TYPE, cid, title, cover, update, author);
-                    } catch (JSONException e) {
-                        e.printStackTrace();
-                    }
-                    return null;
-                }
-            };
-        } catch (JSONException e) {
-            e.printStackTrace();
-            return null;
-        }
+        Node body = new Node(html);
+        return new NodeIterator(body.list(".search-story-item")) {
+            @Override
+            protected Comic parse(Node node) {
+                String cid = node.href("h3 > a").replace("https://manganelo.com/manga/","");
+                String title = node.attr("img","alt");
+                String cover = node.src("img");
+                String update = node.text("span.text-nowrap.item-time").replace("Updated :","").trim();
+                String author = node.text("span.text-nowrap.item-author");
+                return new Comic(TYPE, cid, title, cover, update, author);
+            }
+        };
     }
 
     @Override
@@ -123,20 +109,16 @@ public class MangaNel extends MangaParser {
      * @param comic 漫画实体类，需要设置其中的字段
      */
     @Override
-    public void parseInfo(String html, Comic comic) {
+    public Comic parseInfo(String html, Comic comic) {
         Node body = new Node(html);
-        String title = body.text("div.manga-info-top > ul.manga-info-text > li > h1");
-        String cover = body.src("div.manga-info-pic > img");
-        String update = body.list("div.manga-info-top >  ul.manga-info-text > li")
-                .get(3)
-                .text()
-                .replace("Last updated : ", "");
-        String author = body.list("div.manga-info-top >  ul.manga-info-text > li").get(1).text("a");
-        String intro = body.text("#noidungm");
-        boolean status = isFinish(body.list("div.manga-info-top >  ul.manga-info-text > li")
-                .get(2)
-                .text());
+        String title = body.attr(".info-image > img","title");
+        String cover = body.src(".info-image > img");
+        String update = body.text("div.story-info-right-extent > p:eq(0) > span.stre-value");
+        String author = body.text("table.variations-tableInfo > tbody > tr:eq(1) > td.table-value > a");
+        String intro = body.text("#panel-story-info-description").replace("Description :","");
+        boolean status = isFinish(body.text("table.variations-tableInfo > tbody > tr:eq(2) > td.table-value > a"));
         comic.setInfo(title, cover, update, intro, author, status);
+        return comic;
     }
 
     /**
@@ -145,13 +127,14 @@ public class MangaNel extends MangaParser {
      * @param html 页面源代码
      */
     @Override
-    public List<Chapter> parseChapter(String html) {
+    public List<Chapter> parseChapter(String html, Comic comic, Long sourceComic) {
         Set<Chapter> set = new LinkedHashSet<>();
         Node body = new Node(html);
-        for (Node node : body.list("div.chapter-list > div.row")) {
-            String title = node.text("span > a");
-            String path = node.list("span > a").get(0).href();
-            set.add(new Chapter(title, path));
+        int i=0;
+        for (Node node : body.list(".row-content-chapter > li")) {
+            String title = node.text("a");
+            String path = node.href("a");
+            set.add(new Chapter(Long.parseLong(sourceComic + "000" + i++), sourceComic, title, path));
         }
         return new LinkedList<>(set);
     }
@@ -168,7 +151,7 @@ public class MangaNel extends MangaParser {
     }
 
     /**
-     * 解析图片列表，若为惰性加载，则 {@link ImageUrl#lazy} 为 true
+     * 解析图片列表，若为惰性加载，则 {@link ImageUrl lazy} 为 true
      * 惰性加载的情况，一次性不能拿到所有图片链接，例如网站使用了多次异步请求 {@link DM5#parseImages}，或需要跳转到不同页面
      * 才能获取 {@link HHSSEE#parseImages}，这些情况一般可以根据页码构造出相应的请求链接，到阅读时再解析
      * 支持多个链接 ，例如 {@link IKanman#parseImages}
@@ -176,12 +159,14 @@ public class MangaNel extends MangaParser {
      * @param html 页面源代码
      */
     @Override
-    public List<ImageUrl> parseImages(String html) {
+    public List<ImageUrl> parseImages(String html, Chapter chapter) {
         List<ImageUrl> list = new LinkedList<>();
         Node body = new Node(html);
         int i = 0;
-        for (Node node : body.list("div.vung-doc > img")) {
-            list.add(new ImageUrl(++i, node.src(), false));
+        for (Node node : body.list("div.container-chapter-reader > img")) {
+            Long comicChapter = chapter.getId();
+            Long id = Long.parseLong(comicChapter + "000" + i);
+            list.add(new ImageUrl(id, comicChapter, ++i, node.src(), false));
         }
         return list;
     }

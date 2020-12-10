@@ -80,7 +80,7 @@ public class Webtoon extends MangaParser {
     }
 
     @Override
-    public void parseInfo(String html, Comic comic) {
+    public Comic parseInfo(String html, Comic comic) {
         Node body = new Node(html);
         String title = body.text("#ct > div.detail_info > a._btnInfo > p.subj");
         String cover = body.src("#_episodeList > li > a > div.row > div.pic > img");
@@ -93,16 +93,18 @@ public class Webtoon extends MangaParser {
         String intro = body.text("#_informationLayer > p.summary_area");
         boolean status = isFinish(body.text("#_informationLayer > div.info_update"));
         comic.setInfo(title, cover, update, intro, author, status);
+        return comic;
     }
 
     @Override
-    public List<Chapter> parseChapter(String html) {
+    public List<Chapter> parseChapter(String html, Comic comic, Long sourceComic) {
         List<Chapter> list = new LinkedList<>();
         Node body = new Node(html);
+        int i=0;
         for (Node node : body.list("#_episodeList > li > a")) {
             String title = node.text("div.row > div.info > p.sub_title > span");
             String path = node.hrefWithSubString(30);
-            list.add(new Chapter(title, path));
+            list.add(new Chapter(Long.parseLong(sourceComic + "000" + i++), sourceComic, title, path));
         }
         return list;
     }
@@ -114,7 +116,7 @@ public class Webtoon extends MangaParser {
     }
 
     @Override
-    public List<ImageUrl> parseImages(String html) {
+    public List<ImageUrl> parseImages(String html, Chapter chapter) {
         List<ImageUrl> list = new LinkedList<>();
         String jsonString = StringUtils.match("var imageList = ([\\s\\S]*?);", html, 1);
         if (jsonString != null) {
@@ -122,8 +124,10 @@ public class Webtoon extends MangaParser {
                 JSONArray array = new JSONArray(jsonString);
                 int size = array.length();
                 for (int i = 0; i != size; ++i) {
+                    Long comicChapter = chapter.getId();
+                    Long id = Long.parseLong(comicChapter + "000" + i);
                     JSONObject object = array.getJSONObject(i);
-                    list.add(new ImageUrl(i + 1, object.getString("url"), false));
+                    list.add(new ImageUrl(id, comicChapter, i + 1, object.getString("url"), false));
                 }
             } catch (JSONException e) {
                 e.printStackTrace();

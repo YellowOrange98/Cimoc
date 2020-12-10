@@ -1,14 +1,9 @@
 package com.hiroshi.cimoc.source;
 
-
-
 import android.util.Pair;
 
-import com.alibaba.fastjson.JSON;
+
 import com.google.common.collect.Lists;
-import com.google.gson.Gson;
-import com.google.gson.JsonObject;
-import com.google.gson.annotations.SerializedName;
 import com.hiroshi.cimoc.App;
 import com.hiroshi.cimoc.core.Manga;
 import com.hiroshi.cimoc.model.Chapter;
@@ -19,9 +14,7 @@ import com.hiroshi.cimoc.parser.JsonIterator;
 import com.hiroshi.cimoc.parser.MangaCategory;
 import com.hiroshi.cimoc.parser.MangaParser;
 import com.hiroshi.cimoc.parser.SearchIterator;
-import com.hiroshi.cimoc.soup.MDocument;
 import com.hiroshi.cimoc.soup.Node;
-import com.hiroshi.cimoc.ui.activity.ResultActivity;
 import com.hiroshi.cimoc.utils.StringUtils;
 
 import org.json.JSONArray;
@@ -33,7 +26,6 @@ import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
 
 import okhttp3.Headers;
 import okhttp3.Request;
@@ -121,29 +113,26 @@ public class Manhuatai extends MangaParser {
 
     //获取封面等信息（非搜索页）
     @Override
-    public void parseInfo(String html, Comic comic) throws UnsupportedEncodingException {
+    public Comic parseInfo(String html, Comic comic) {
         Node body = new Node(html);
         String title = body.attr("h1#detail-title", "title");
-//        String cover = body.src("#offlinebtn-container > img");//封面链接已改到style属性里了
         String cover = body.attr("div.detail-cover > img", "data-src");
         cover = "https:" + cover;
-//        Log.i("Cover", cover);
         String update = body.text("span.update").substring(0,10);
         String author = null;
         String intro = body.text("div#js_comciDesc > p.desc-content");
-//        boolean status = isFinish(body.text("div.jshtml > ul > li:nth-child(2)").substring(3));
         comic.setInfo(title, cover, update, intro, author, false);
+        return comic;
     }
 
     @Override
-    public List<Chapter> parseChapter(String html) {
+    public List<Chapter> parseChapter(String html, Comic comic, Long sourceComic) {
         List<Chapter> list = new LinkedList<>();
+        int i=0;
         for (Node node : new Node(html).list("ol#j_chapter_list > li > a")) {
             String title = node.attr( "title");
-//            String path = node.hrefWithSplit(0);//于2018.3失效
             String path = node.hrefWithSplit(1);
-//            Log.i("Path", path);
-            list.add(new Chapter(title, path));
+            list.add(new Chapter(Long.parseLong(sourceComic + "000" + i++), sourceComic, title, path));
         }
         return Lists.reverse(list);
     }
@@ -159,7 +148,7 @@ public class Manhuatai extends MangaParser {
     }
 
     @Override
-    public List<ImageUrl> parseImages(String html)  {
+    public List<ImageUrl> parseImages(String html, Chapter chapter)  {
         List<ImageUrl> list = new LinkedList<>();
         try {
             JSONObject object = new JSONObject(html);
@@ -168,20 +157,23 @@ public class Manhuatai extends MangaParser {
             }
 
             JSONArray chapters = object.getJSONObject("data").getJSONArray("comic_chapter");
-            JSONObject chapter = null;
+            JSONObject chapterNew = null;
             for (int i = 0; i < chapters.length(); i++) {
-                chapter = chapters.getJSONObject(i);
-                String a = chapter.getString("chapter_id");
+                chapterNew = chapters.getJSONObject(i);
+                String a = chapterNew.getString("chapter_id");
                 if(a.equals(_path)) {
                     break;
                 }
             }
 
-            String ImagePattern = "http://mhpic." + chapter.getString("chapter_domain") + chapter.getString("rule") + "-mht.low.webp";
+            String ImagePattern = "http://mhpic." + chapterNew.getString("chapter_domain") + chapterNew.getString("rule") + "-mht.low.webp";
 
-            for (int index = chapter.getInt("start_num"); index <= chapter.getInt("end_num"); index++) {
+            for (int index = chapterNew.getInt("start_num"); index <= chapterNew.getInt("end_num"); index++) {
+                Long comicChapter = chapter.getId();
+                Long id = Long.parseLong(comicChapter + "000" + index);
+
                 String image = ImagePattern.replaceFirst("\\$\\$", Integer.toString(index));
-                list.add(new ImageUrl(index, image, false));
+                list.add(new ImageUrl(id, comicChapter, index, image, false));
             }
         } catch (JSONException ex) {
             // ignore
@@ -189,22 +181,22 @@ public class Manhuatai extends MangaParser {
 
         return list;
     }
-
-
-    class MhInfo {
-        @SerializedName("startimg")
-        int startimg;
-        @SerializedName("totalimg")
-        int totalimg;
-        @SerializedName("pageid")
-        int pageid;
-        @SerializedName("comic_size")
-        String comic_size;
-        @SerializedName("domain")
-        String domain;
-        @SerializedName("imgpath")
-        String imgpath;
-    }
+//
+//
+//    class MhInfo {
+//        @SerializedName("startimg")
+//        int startimg;
+//        @SerializedName("totalimg")
+//        int totalimg;
+//        @SerializedName("pageid")
+//        int pageid;
+//        @SerializedName("comic_size")
+//        String comic_size;
+//        @SerializedName("domain")
+//        String domain;
+//        @SerializedName("imgpath")
+//        String imgpath;
+//    }
 
     @Override
     public Request getCheckRequest(String cid) {
@@ -213,7 +205,7 @@ public class Manhuatai extends MangaParser {
 
     @Override
     public String parseCheck(String html) {
-        return new Node(html).text("div.jshtml > ul > li:nth-child(5)").substring(3);
+        return new Node(html).text("span.update").substring(0,10);
     }
 
     @Override
@@ -224,7 +216,6 @@ public class Manhuatai extends MangaParser {
             String cid = node.hrefWithSplit(0);
             String title = node.attr("title");
             String cover = node.getChild("img").attr("data-url");
-//            String cover1 = node.attr("div > img", "data-url");
             Node node1 = null;
             try {
                 node1 = getComicNode(cid);
@@ -232,16 +223,11 @@ public class Manhuatai extends MangaParser {
                 e.printStackTrace();
             }
             if (StringUtils.isEmpty(cover) && node1 != null) {
-//                cover = node.src("div > img");
                 cover = node1.src("#offlinebtn-container > img");
             }
-//            String update = node.text("div > span:nth-child(1)");
-//            String author = "佚名";
-//            String cover = null;
             String author = null;
             String update = null;
             if (node1 != null) {
-//                cover = getComicNode(cid).src("#offlinebtn-container > img");
                 author = node1.text("div.jshtml > ul > li:nth-child(3)").substring(3);
                 update = node1.text("div.jshtml > ul > li:nth-child(5)").substring(3);
             }

@@ -16,10 +16,11 @@
     <string name="main_notice">歡迎使用</string>
     <string name="main_notice_content">有问题上github或gitter留言</string>
     <string name="main_permission">權限請求</string>
-    <string name="main_permission_content">下載、備份還原與儲存圖片功能需要存取 SD 卡的權限！ \n如果沒有儲存權限，將會出現設定功能將閃退，備份功能無法使用等問題。請在之後的彈出框中確定授予權限！</string>
+    <string name="main_permission_content">下載、軟件升級、備份還原與儲存圖片功能需要存取 SD 卡的權限！ \n如果沒有儲存權限，將會出現設定功能將閃退，備份功能無法使用等問題。請在之後的彈出框中確定授予權限！</string>
     <string name="main_permission_success">取得權限成功</string>
     <string name="main_permission_fail">取得權限失敗</string>
     <string name="main_ready_update">檢測到新版本</string>
+    <string name="main_start_update">升級到：</string>
 
     <string name="search_menu_source">圖源</string>
     <string name="search_keyword_empty">關鍵字為空</string>
@@ -80,10 +81,10 @@
     <string name="comic_info_chapter">最後閱讀</string>
     <string name="comic_info_time">閱讀時間</string>
 
-    <string name="favorite_check_update_fail">檢查更新失敗</string>
+    <string name="favorite_check_update_fail">檢查漫畫更新失敗</string>
     <string name="favorite_check_update_confirm">是否檢查更新</string>
-    <string name="favorite_check_update_doing">正在檢查更新</string>
-    <string name="favorite_check_update_done">檢查更新完成</string>
+    <string name="favorite_check_update_doing">正在檢查已收藏漫畫更新</string>
+    <string name="favorite_check_update_done">檢查漫畫更新完成</string>
     <string name="favorite_delete">取消收藏</string>
     <string name="favorite_delete_confirm">是否取消收藏</string>
 
@@ -191,6 +192,8 @@
     <string name="settings_other_clear_cache_summary">清理線上漫畫的緩存資料</string>
     <string name="settings_other_firebase_event">Firebase數據收集</string>
     <string name="settings_other_firebase_event_summary">允許程序通過Firebase收集您的使用情況，以便於分析程序和漫畫源的工作狀態。</string>
+    <string name="settings_other_reduce_ad">減少頁面廣告</string>
+    <string name="settings_other_reduce_ad_summary">減少歷史和收藏的廣告，下載和本地頁不顯示廣告</string>
 
     <string name="backup_save">備份</string>
     <string name="backup_save_comic_auto">自動備份</string>
@@ -244,6 +247,7 @@
     <string name="dialog_positive">確定</string>
     <string name="dialog_negative">取消</string>
     <string name="dialog_doing">正在執行中</string>
+    <string name="app_dialog_update">升級</string>
 
     <string name="local_delete">刪除漫畫</string>
     <string name="local_delete_confirm">是否刪除漫畫(不會刪除檔案)</string>

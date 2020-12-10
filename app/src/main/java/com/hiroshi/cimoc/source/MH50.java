@@ -4,6 +4,8 @@ import android.util.Pair;
 
 import com.alibaba.fastjson.JSONArray;
 import com.google.common.collect.Lists;
+import com.hiroshi.cimoc.App;
+import com.hiroshi.cimoc.manager.PreferenceManager;
 import com.hiroshi.cimoc.model.Chapter;
 import com.hiroshi.cimoc.model.Comic;
 import com.hiroshi.cimoc.model.ImageUrl;
@@ -36,6 +38,7 @@ public class MH50 extends MangaParser {
 
     public static final int TYPE = 80;
     public static final String DEFAULT_TITLE = "漫画堆";
+    public static final String  baseUrl = "https://m.manhuadai.com";
 
     public static Source getDefaultSource() {
         return new Source(null, DEFAULT_TITLE, TYPE, true);
@@ -48,7 +51,7 @@ public class MH50 extends MangaParser {
     @Override
     public Request getSearchRequest(String keyword, int page) {
         if (page == 1) {
-            String url = StringUtils.format("https://m.manhuabei.com/search/?keywords=%s&page=%d", keyword, page);
+            String url = StringUtils.format(baseUrl+"/search/?keywords=%s&page=%d", keyword, page);
             return HttpUtils.getSimpleMobileRequest(url);
         }
         return null;
@@ -73,22 +76,22 @@ public class MH50 extends MangaParser {
 
     @Override
     public String getUrl(String cid) {
-        return StringUtils.format("https://m.manhuabei.com/manhua/%s/", cid);
+        return StringUtils.format(baseUrl + "/manhua/%s/", cid);
     }
 
     @Override
     protected void initUrlFilterList() {
-        filter.add(new UrlFilter("m.manhuabei.com"));
+        filter.add(new UrlFilter(baseUrl));
     }
 
     @Override
     public Request getInfoRequest(String cid) {
-        String url = StringUtils.format("https://m.manhuabei.com/manhua/%s/", cid);
+        String url = StringUtils.format(baseUrl + "/manhua/%s/", cid);
         return HttpUtils.getSimpleMobileRequest(url);
     }
 
     @Override
-    public void parseInfo(String html, Comic comic) {
+    public Comic parseInfo(String html, Comic comic) {
         Node body = new Node(html);
         String intro = body.text("#full-des");
         String title = body.text("#comicName");
@@ -98,16 +101,18 @@ public class MH50 extends MangaParser {
         String update = body.text(".Introduct_Sub > .sub_r > .txtItme:eq(4)");
         boolean status = isFinish(body.text(".Introduct_Sub > .sub_r > .txtItme:eq(2) > a:eq(3)"));
         comic.setInfo(title, cover, update, intro, author, status);
+        return comic;
     }
 
     @Override
-    public List<Chapter> parseChapter(String html) {
+    public List<Chapter> parseChapter(String html, Comic comic, Long sourceComic) {
         List<Chapter> list = new LinkedList<>();
         Node body = new Node(html);
+        int i=0;
         for (Node node : body.list(".chapter-warp > ul > li > a")) {
             String title = node.text();
             String path = StringUtils.split(node.href(), "/", 3);
-            list.add(new Chapter(title, path));
+            list.add(new Chapter(Long.parseLong(sourceComic + "000" + i++), sourceComic, title, path));
         }
 
         return Lists.reverse(list);
@@ -115,7 +120,7 @@ public class MH50 extends MangaParser {
 
     @Override
     public Request getImagesRequest(String cid, String path) {
-        String url = StringUtils.format("https://m.manhuabei.com/manhua/%s/%s", cid, path);
+        String url = StringUtils.format(baseUrl + "/manhua/%s/%s", cid, path);
         return HttpUtils.getSimpleMobileRequest(url);
     }
 
@@ -123,14 +128,14 @@ public class MH50 extends MangaParser {
             "https://mhcdn.manhuazj.com",
             "https://manga8.mlxsc.com",
             "https://manga9.mlxsc.com",
-            "https://img01.eshanyao.com"
+            "https://img01.eshanyao.com",
+            "https://imgdm.eshanyao.com/"
     };
 
     @Nullable
     private String decrypt(String code) {
-        //感谢破解秘钥的大佬zzy94269664
-        String key = "1739ZAQ54321bbG1";
-        String iv = "ABCDEF1G344321bb";
+        String key = App.getPreferenceManager().getString(PreferenceManager.PREFERENCES_MH50_KEY_MSG, "KA58ZAQ321oobbG8");
+        String iv = App.getPreferenceManager().getString(PreferenceManager.PREFERENCES_MH50_IV_MSG, "A1B2C3DEF1G321o8");
         try {
             return DecryptionUtils.aesDecrypt(code, key, iv);
         } catch (Exception e) {
@@ -142,7 +147,7 @@ public class MH50 extends MangaParser {
     private String getImageUrlByKey(String key, String domain, String chapter) {
         if (key.startsWith("http://images.dmzj.com")) {
             try {
-                return domain +"/showImage.php?url=" + key;
+                return "https://imgdm.eshanyao.com/showImage.php?url=" + key;
             } catch (Exception e) {
                 return null;
             }
@@ -161,7 +166,7 @@ public class MH50 extends MangaParser {
     }
 
     @Override
-    public List<ImageUrl> parseImages(String html) {
+    public List<ImageUrl> parseImages(String html,Chapter chapter) {
         List<ImageUrl> list = new LinkedList<>();
 
         //该章节的所有图片url，aes加密
@@ -175,10 +180,13 @@ public class MH50 extends MangaParser {
         int imageListSize = imageList.size();
         for (int i = 0; i != imageListSize; ++i) {
             String key = imageList.getString(i);
-            String imageUrl = getImageUrlByKey(key, server[3], chapterPath);
-            if(imageUrl.contains("images.dmzj.com"))
-                imageUrl = imageUrl.replace("%","%25");
-            list.add(new ImageUrl(i + 1, imageUrl, false));
+            String imageUrl = getImageUrlByKey(key, server[0], chapterPath);
+            if (imageUrl != null && imageUrl.contains("images.dmzj.com")) {
+                imageUrl = imageUrl.replace("%", "%25");
+            }
+            Long comicChapter = chapter.getId();
+            Long id = Long.parseLong(comicChapter + "000" + i);
+            list.add(new ImageUrl(id, comicChapter, i + 1, imageUrl, false));
         }
         return list;
     }
@@ -225,9 +233,9 @@ public class MH50 extends MangaParser {
                     .concat(args[CATEGORY_PROGRESS]).trim();
             String finalPath;
             if (path.isEmpty()) {
-                finalPath = StringUtils.format("https://m.manhuabei.com/list/");
+                finalPath = StringUtils.format(baseUrl + "/list/");
             } else {
-                finalPath = StringUtils.format("https://m.manhuabei.com/list/%s/?page=%%d", path).replaceAll("\\s+", "-");
+                finalPath = StringUtils.format(baseUrl + "/list/%s/?page=%%d", path).replaceAll("\\s+", "-");
             }
             return finalPath;
         }
@@ -388,7 +396,6 @@ public class MH50 extends MangaParser {
 
     @Override
     public Headers getHeader() {
-        return Headers.of("Referer", "https://m.manhuabei.com/");
+        return Headers.of("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/80.0.3987.149 Safari/537.36");
     }
-
 }
